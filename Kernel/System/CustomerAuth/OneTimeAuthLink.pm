@@ -18,9 +18,7 @@ package Kernel::System::CustomerAuth::OneTimeAuthLink;
 
 use strict;
 use warnings;
-
-use Crypt::PasswdMD5 qw(unix_md5_crypt apache_md5_crypt);
-use Digest::SHA;
+use utf8;
 
 our @ObjectDependencies = (
     'Kernel::Config',
@@ -39,7 +37,7 @@ sub new {
     # get database object
     $Self->{DBObject} = $Kernel::OM->Get('Kernel::System::DB');
     
-    $Self->{Table} = 'OTATokens';
+    $Self->{Table} = 'ota_tokens';
 
     return $Self;
 }
@@ -84,13 +82,22 @@ sub Auth {
     }
 
     $Self->{DBObject}->Prepare(
-        SQL => "SELECT Used,User,TicketNumber FROM $Self->{Table} WHERE Token = ?",
+        SQL => "SELECT used,user,ticket_number FROM $Self->{Table} WHERE token = ?",
         Bind => [ \$Param{OTAToken} ],
     );
 
-    my ( $Used, $User, $TicketNumber ) = $Self->{DBObject}->FetchrowArray() || ( 0 );
+    my @Row =  $Self->{DBObject}->FetchrowArray();
+    my ( $Used, $User, $TicketNumber ) = ( 0 );
 
-    return if ( !$Used || !$User );
+    if ( @Row ) {
+        ( $Used, $User, $TicketNumber ) = @Row;
+    }
+
+    if ( !$Used || !$User ) {
+        return {
+            Error => $Kernel::OM->Get('Kernel::Config')->Get('OneTimeAuth::CustomerErrorMessageLinkExpired') || 'Ihr Link verweist auf kein noch gültiges Ticket.',
+        }
+    }
 
     my $CustomerUserObject = $Kernel::OM->Get('Kernel::System::CustomerUser');
 
@@ -110,11 +117,8 @@ sub Auth {
 
         # check whether active login link still exists
         $Self->{DBObject}->Prepare(
-            SQL => "
-                SELECT User FROM $Self->{Table} WHERE
-                TicketNumber = ? AND Used = ?
-                ",
-            Bind => [ \$Param{OTAToken}, \2 ],
+            SQL => "SELECT user FROM $Self->{Table} WHERE ticket_number = ? AND used = ?",
+            Bind => [ \$TicketNumber, \2 ],
         );
 
         if ( $Self->{DBObject}->FetchrowArray() ) {
@@ -122,6 +126,10 @@ sub Auth {
                 Priority => 'debug',
                 Message  => "CustomerUser '$User' tried to log in with an old token. New token exists - nothing to do."
             );
+
+            return {
+                Error => $Kernel::OM->Get('Kernel::Config')->Get('OneTimeAuth::CustomerErrorMessageWrongLink') || 'Aus Sicherheitsgründen müssen Sie den neuesten Ihnen zugesandten Link nutzen um auf dieses Ticket zuzugreifen.',
+            }
         }
         else {
             $Kernel::OM->Get('Kernel::System::Log')->Log(
@@ -133,9 +141,11 @@ sub Auth {
                 User         => $User,
                 TicketNumber => $TicketNumber,
             );
-        }
 
-        return;
+            return {
+                Error => $Kernel::OM->Get('Kernel::Config')->Get('OneTimeAuth::CustomerErrorMessageNewLink') || 'Ihre Session ist leider abgelaufen - ein neuer Link wurde an Ihre Email-Adresse gesendet.',
+            }
+        }
     }
     elsif ( $Used == 2 ) {
         $Kernel::OM->Get('Kernel::System::Log')->Log(
@@ -169,7 +179,7 @@ sub GenerateToken {
 
     # deactivate all other tokens for this ticket
     $Self->DeactivateTicketTokens(
-        TicketNumber => $TicketNumber,
+        TicketNumber => $Param{TicketNumber},
     );
 
     my $OTATokenLength = 24;
@@ -206,7 +216,7 @@ sub GenerateToken {
     return if !$Self->{DBObject}->Do(
         SQL => "INSERT INTO $Self->{Table} ( token, ticket_number, used, user, create_time, change_time )
             VALUES ( ?, ?, ?, ?, current_timestamp, current_timestamp )",
-        Bind => [ \$RandomString, \$TicketNumber, \2, \$User ],
+        Bind => [ \$RandomString, \$Param{TicketNumber}, \2, \$Param{User} ],
     );
     
     return $RandomString;
@@ -228,7 +238,7 @@ sub DeactivateTicketTokens {
 
     return if !$Self->{DBObject}->Do(
         SQL => "UPDATE $Self->{Table} SET used = 1, change_time = current_timestamp WHERE ticket_number = ? AND used = 2",
-        Bind => [ \$TicketNumber ],
+        Bind => [ \$Param{TicketNumber} ],
     );
 
     return 1;
@@ -250,7 +260,7 @@ sub DeleteTicketTokens {
 
     return if !$Self->{DBObject}->Do(
         SQL => "DELETE FROM $Self->{Table} WHERE ticket_number = ?",
-        Bind => [ \$TicketNumber ],
+        Bind => [ \$Param{TicketNumber} ],
     );
 
     return 1;
@@ -269,7 +279,7 @@ sub TicketLink {
                 Message  => "Need $Needed!"
             );
 
-            return $ConfigObject->Get('OneTimeAuth::CustomerErrorMessage') // 'Link could not be generated, please contact us directly!';
+            return $ConfigObject->Get('OneTimeAuth::CustomerErrorMessageRefreshFailed') // 'Link could not be generated, please contact us directly!';
         }
     }
 
@@ -299,7 +309,7 @@ sub TicketLink {
         $TicketLink .= ";OTAToken=$Token";
     }
 
-    return $TicketLink;
+    return "<a href='$TicketLink' target='_blank'>$TicketLink</a>";
 }
 
 sub DeactivateClosedTickets {
@@ -317,7 +327,7 @@ sub DeactivateClosedTickets {
     my $StillOKTime = $Kernel::OM->Create('Kernel::System::DateTime')->ToEpoch() - 24*60*60*$Delay;
 
     TICKET:
-    while ( my @Row = $DBObject->FetchrowArray() ) {
+    while ( my @Row = $Self->{DBObject}->FetchrowArray() ) {
         my $TicketID = $TicketObject->TicketIDLookup(
             TicketNumber => $Row[0],
         );
@@ -359,7 +369,7 @@ sub SendNewToken {
                 Message  => "Need $Needed!"
             );
 
-            return $ConfigObject->Get('OneTimeAuth::CustomerErrorMessage') // 'Link could not be generated, please contact us directly!';
+            return;
         }
     }
 
@@ -383,23 +393,62 @@ sub SendNewToken {
         UserID  => 1,
     );
 
-    my $TicketLink = $Self->TicketLink( %Param );
+    my $NotificationID = $ConfigObject->Get('OneTimeAuth::TokenRefreshNotificationID');
+
+    my ( $Body, $Subject );
+
+    if ( $NotificationID ) {
+        my %Notification = $Kernel::OM->Get('Kernel::System::NotificationEvent')->NotificationGet(
+            ID => $NotificationID,
+        );
+
+        my %Languages = map { $_ => $_ } @{ $Notification{Data}{LanguageID} };
+        my $Language  = $Languages{de} || $Languages{en} || $Notification{Data}{LanguageID}[0];
+
+        # replace place holder stuff
+        $Body = $TemplateGenerator->_Replace(
+            RichText        => $ConfigObject->Get('Frontend::RichText'),
+            Text            => $Notification{Message}{$Language}{Body},
+            Data            => {},
+            TicketData      => \%Ticket,
+            UserID          => 1,
+        );
+
+        $Subject = $TemplateGenerator->_Replace(
+            RichText        => 0,
+            Text            => $Notification{Message}{$Language}{Subject},
+            Data            => {},
+            TicketData      => \%Ticket,
+            UserID          => 1,
+        );
+    }
+
+    else {
+        my $TicketLink = $Self->TicketLink( %Param );
+
+        $Subject = "Neuer Authentifizierungslink für Ticket#$Ticket{TicketNumber}";
+        $Body    = "Guten Tag<br/>Ihr aktueller Link um auf Ticket#$Ticket{TicketNumber} zugreifen zu können lautet:<br/>$TicketLink";
+    }
+
 
     my $EmailObject = $Kernel::OM->Get('Kernel::System::Email');
-    my $Sent = $SendObject->Send(
+    my $Sent = $EmailObject->Send(
         From     => $Sender,
         To       => $User{UserEmail},
-        Subject  => 'New TicketLink',
-        Charset  => 'iso-8859-15',
+        Subject  => $Subject,
+        Charset  => 'utf-8',
         MimeType => 'text/html',
-        Body     => "Hello hello,<br/>please click sis link: $TicketLink",
-#        InReplyTo     => '<somemessageid-2@example.com>',
-#        References    => '<somemessageid-1@example.com> <somemessageid-2@example.com>',
-#        Loop          => 1, # not required, removes smtp from
-#        CustomHeaders => {
-#            X-OTOBO-MyHeader => 'Some Value',
-#        },
+        Body     => $Body,
     );
+
+    if ( !$Sent ) {
+        $Kernel::OM->Get('Kernel::System::Log')->Log(
+            Priority => 'error',
+            Message  => "Could not send new token to $Param{User} for Ticket#$Param{TicketNumber}!"
+        );
+
+        return;
+    }
 
     return 1;
 }

@@ -165,6 +165,13 @@ sub Auth {
         # check auth backend
         $User = $Self->{"Backend$_"}->Auth(%Param);
 
+# Rother OSS / OneTimeAuthenticationLink
+        if ( ref $User && ref $User eq 'HASH' && $User->{Error} ) {
+            $Self->{LastErrorMessage} = $User->{Error};
+            return;
+        }
+# EO OneTimeAuthenticationLink
+
         # next on no success
         next COUNT if !$User;
 

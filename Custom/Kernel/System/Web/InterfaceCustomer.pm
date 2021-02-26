@@ -260,7 +260,10 @@ sub Run {
         my $PreventBruteForceConfig = $ConfigObject->Get('SimpleBruteForceProtection::GeneralSettings');
 
         # if simplebruteforceconfig is valid
-        if ($PreventBruteForceConfig) {
+# Rother OSS / OneTimeAuthenticationLink
+#        if ($PreventBruteForceConfig) {
+        if ( $PostUser && $PreventBruteForceConfig ) {
+# EO OneTimeAuthenticationLink
 
             # check if the login is banned
             my $CacheObject   = $Kernel::OM->Get('Kernel::System::Cache');
@@ -363,7 +366,10 @@ sub Run {
                 return;
             }
 
-            if ($PreventBruteForceConfig) {
+# Rother OSS / OneTimeAuthenticationLink
+#            if ($PreventBruteForceConfig) {
+            if ( $PostUser && $PreventBruteForceConfig ) {
+# EO OneTimeAuthenticationLink
 
                 # prevent brute force
                 my $Banned = $Self->_StoreFailedLogins(
