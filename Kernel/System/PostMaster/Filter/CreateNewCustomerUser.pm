@@ -86,7 +86,7 @@ sub Run {
     if ( %List ) {
 
         # return if no X-OTOBO-CustomerUser spoofing is possible/dangerous
-        return 1 if !$Param{JobConfig}{CustomerHeaderSpoofProtection};
+        return 1 if !$Param{JobConfig}{CustomerHeaderSpoofProtection} && !$Param{JobConfig}{SetCheckBoxName};
 
         my %CustomerData;
         LOGIN:
@@ -103,6 +103,12 @@ sub Run {
 
         # if user exists but is not valid, do nothing
         return 1 if !%CustomerData;
+
+        if ( $Param{JobConfig}{SetCheckBoxName} && $CustomerData{Source} eq ( $Param{JobConfig}{CustomerUserBackend} || 'CustomerUser' ) ) {
+            $Param{GetParam}{ 'X-OTOBO-DynamicField-' . $Param{JobConfig}{SetCheckBoxName} } = 1;
+        }
+
+        return 1 if !$Param{JobConfig}{CustomerHeaderSpoofProtection};
 
         # take CustomerID from customer backend lookup or from from field
         if ( $CustomerData{UserLogin} ) {
@@ -157,6 +163,10 @@ sub Run {
 
             $Param{GetParam}{'X-OTOBO-CustomerUser'} = $UserLogin;
             $Param{GetParam}{'X-OTOBO-CustomerNo'}   = $UserLogin;
+
+            if ( $Param{JobConfig}{SetCheckBoxName} ) {
+                $Param{GetParam}{ 'X-OTOBO-DynamicField-' . $Param{JobConfig}{SetCheckBoxName} } = 1;
+            }
 
             # set preferences
             $CustomerUserObject->SetPreferences(
