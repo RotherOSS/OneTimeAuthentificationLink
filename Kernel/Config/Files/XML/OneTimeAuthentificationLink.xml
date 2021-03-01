@@ -42,7 +42,7 @@
             <Item ValueType="String" ValueRegex="^\d*$">0</Item>
         </Value>
     </Setting>
-    <Setting Name="PostMaster::PreFilterModule###000-CreateCustomerUser" Required="0" Valid="1">
+    <Setting Name="PostMaster::PreFilterModule###000-CreateCustomerUser" Required="0" Valid="0">
         <Description Translatable="1">Create a CustomerUser in a specific backend if none exists for the sender email. CustomerHeaderSpoofProtection sets (and possibly overwrites) the X-OTOBO-Customer header if a customer user exists for an email address to prevent spoofing. CustomerUserBackend defines the backend in which the CustomerUser will be created, if SetCheckBoxName is set to the name of a dynamic field of the type checkbox, it will be set to checked for tickets created by customer users from this backend.</Description>
         <Navigation>Core::Email::PostMaster</Navigation>
         <Value>
