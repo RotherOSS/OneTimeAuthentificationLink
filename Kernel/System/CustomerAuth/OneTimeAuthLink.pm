@@ -318,18 +318,23 @@ sub DeactivateClosedTickets {
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
     my $TicketObject = $Kernel::OM->Get('Kernel::System::Ticket');
 
-    $Self->{DBObject}->Prepare(
-        SQL => "SELECT DISTINCT(ticket_number) FROM $Self->{Table}",
-    );
-
     # get the compare time if a delay is given
     my $Delay       = $Kernel::OM->Get('Kernel::Config')->Get('OneTimeAuth::AccessDaysAfterClose') || 0;
     my $StillOKTime = $Kernel::OM->Create('Kernel::System::DateTime')->ToEpoch() - 24*60*60*$Delay;
 
-    TICKET:
+    $Self->{DBObject}->Prepare(
+        SQL => "SELECT DISTINCT(ticket_number) FROM $Self->{Table}",
+    );
+    
+    my @TicketNumbers;
     while ( my @Row = $Self->{DBObject}->FetchrowArray() ) {
+        push @TicketNumbers, $Row[0];
+    }
+    
+    TICKET:
+    for my $TN ( @TicketNumbers ) {
         my $TicketID = $TicketObject->TicketIDLookup(
-            TicketNumber => $Row[0],
+            TicketNumber => $TN,
         );
 
         my %Ticket = $TicketObject->TicketGet(
@@ -350,8 +355,8 @@ sub DeactivateClosedTickets {
             }
 
             $Self->DeleteTicketTokens(
-                TicketNumber => $Ticket{TicketNumber},
-            );
+                TicketNumber => $TN,
+            ); 
         }
     }
 
