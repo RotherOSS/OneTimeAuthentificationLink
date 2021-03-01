@@ -106,7 +106,7 @@ sub Run {
 
         # take CustomerID from customer backend lookup or from from field
         if ( $CustomerData{UserLogin} ) {
-            $GetParam{'X-OTOBO-CustomerUser'} = $CustomerData{UserLogin};
+            $Param{GetParam}{'X-OTOBO-CustomerUser'} = $CustomerData{UserLogin};
 
             # notice that UserLogin is from customer source backend
             $Self->{CommunicationLogObject}->ObjectLog(
@@ -118,7 +118,7 @@ sub Run {
             );
         }
         if ( $CustomerData{UserCustomerID} ) {
-            $GetParam{'X-OTOBO-CustomerNo'} = $CustomerData{UserCustomerID};
+            $Param{GetParam}{'X-OTOBO-CustomerNo'} = $CustomerData{UserCustomerID};
 
             # notice that UserCustomerID is from customer source backend
             $Self->{CommunicationLogObject}->ObjectLog(
@@ -137,8 +137,8 @@ sub Run {
         
         my $Success = $CustomerUserObject->CustomerUserAdd(
             Source         => $Param{JobConfig}{CustomerUserBackend} || 'CustomerUser',
-#            UserFirstname  => '',
-#            UserLastname   => '',
+            UserFirstname  => ' ',
+            UserLastname   => ' ',
             UserCustomerID => $UserLogin,
             UserLogin      => $UserLogin,
             UserEmail      => $UserLogin,
@@ -152,11 +152,28 @@ sub Run {
                 ObjectLogType => 'Message',
                 Priority      => 'Notice',
                 Key           => 'Kernel::System::PostMaster::Filter::CreateNewCustomerUser',
-                Value         => "Create and set new UserLogin ($CustomerData{UserLogin}).",
+                Value         => "Create and set new UserLogin ($UserLogin).",
             );
 
-            $GetParam{'X-OTOBO-CustomerUser'} = $UserLogin;
-            $GetParam{'X-OTOBO-CustomerNo'}   = $UserLogin;
+            $Param{GetParam}{'X-OTOBO-CustomerUser'} = $UserLogin;
+            $Param{GetParam}{'X-OTOBO-CustomerNo'}   = $UserLogin;
+
+            # set preferences
+            $CustomerUserObject->SetPreferences(
+                UserID => $UserLogin,
+                Key    => 'UserTimeZone',
+                Value  => 'Europe/Berlin',
+            );
+            $CustomerUserObject->SetPreferences(
+                UserID => $UserLogin,
+                Key    => 'UserShowTickets',
+                Value  => '25',
+            );
+            $CustomerUserObject->SetPreferences(
+                UserID => $UserLogin,
+                Key    => 'UserRefreshTime',
+                Value  => '0',
+            );
         }
     }
 
