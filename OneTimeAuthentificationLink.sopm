@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<otobo_package version="1.0">
+    <Name>OneTimeAuthentificationLink</Name>
+    <Vendor>Rother OSS GmbH</Vendor>
+    <Framework>10.0.x</Framework>
+    <URL>https://rother-oss.com/</URL>
+    <License>GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007</License>
+    <Description Lang="en">Automatically creates customer users and gives them access via one time authentification tokens.</Description>
+    <Filelist>
+        <File Permission='644' Location='Custom/Kernel/System/CustomerAuth.pm' />
+        <File Permission='644' Location='Custom/Kernel/System/TemplateGenerator.pm' />
+        <File Permission='644' Location='Custom/Kernel/System/Web/InterfaceCustomer.pm' />
+        <File Permission='644' Location='Kernel/Config/Files/XML/OneTimeAuthentificationLink.xml' />
+        <File Permission='644' Location='Kernel/System/Console/Command/Maint/CustomerAuth/DeleteExpiredOTATokens.pm' />
+        <File Permission='644' Location='Kernel/System/CustomerAuth/OneTimeAuthLink.pm' />
+        <File Permission='644' Location='Kernel/System/PostMaster/Filter/CreateNewCustomerUser.pm' />
+    </Filelist>
+    <DatabaseInstall Type="pre">
+        <TableCreate Name="ota_tokens">
+            <Column Name="token" Required="true" Size="64" Type="VARCHAR" />
+            <Column Name="ticket_number" Required="true" Size="64" Type="VARCHAR" />
+            <Column Name="user" Required="true" Size="191" Type="VARCHAR" />
+            <Column Name="used" Required="true" Type="INTEGER" />
+            <Column Name="change_time" Required="true" Type="DATE" />
+            <Column Name="create_time" Required="true" Type="DATE" />
+        </TableCreate>
+    </DatabaseInstall>
+    <DatabaseUninstall Type="pre">
+        <TableDrop Name="ota_tokens" />
+    </DatabaseUninstall>
+</otobo_package>
