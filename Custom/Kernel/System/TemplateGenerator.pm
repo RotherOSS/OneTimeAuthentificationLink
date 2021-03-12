@@ -1550,6 +1550,19 @@ sub _Replace {
     # cleanup
     $Param{Text} =~ s/$Tag2.+?$End/-/gi;
 
+# Rother OSS / OneTimeAuthenticationLink
+    # Replace config options.
+    $Tag = $Start . 'OTOBO_OTACustomerTicketLink';
+    $Param{Text} =~ s{$Tag$End}{
+        my $Replace = $Kernel::OM->Get('Kernel::System::CustomerAuth::OneTimeAuthLink')->TicketLink(
+            TicketNumber => $Ticket{TicketNumber},
+            User         => $Ticket{CustomerUserID},
+        );
+
+        $Replace;
+    }egx;
+# EO OneTimeAuthenticationLink
+
     # ticket data
     $Tag = $Start . 'OTOBO_TICKET_';
 
@@ -1564,19 +1577,6 @@ sub _Replace {
             );
         }
     }
-
-# Rother OSS / OneTimeAuthenticationLink
-    # Replace config options.
-    $Tag = $Start . 'OTOBO_OTACustomerTicketLink';
-    $Param{Text} =~ s{$Tag$End}{
-        my $Replace = $Kernel::OM->Get('Kernel::System::CustomerAuth::OneTimeAuthLink')->TicketLink(
-            TicketNumber => $Ticket{TicketNumber},
-            User         => $Ticket{CustomerUserID},
-        );
-
-        $Replace;
-    }egx;
-# EO OneTimeAuthenticationLink
 
     # Dropdown, Checkbox and MultipleSelect DynamicFields, can store values (keys) that are
     # different from the the values to display
