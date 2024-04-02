@@ -2,9 +2,9 @@
 # OTOBO is a web-based ticketing system for service organisations.
 # --
 # Copyright (C) 2001-2020 OTRS AG, https://otrs.com/
-# Copyright (C) 2019-2022 Rother OSS GmbH, https://otobo.de/
+# Copyright (C) 2019-2024 Rother OSS GmbH, https://otobo.de/
 # --
-# $origin: otobo - e894aef610208fdc401a4df814ca59658292fbba - Kernel/System/CustomerAuth.pm
+# $origin: otobo - 55126f4ab25373dded7533aeb0d7cd7743e7e7a9 - Kernel/System/CustomerAuth.pm
 # --
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
@@ -179,7 +179,15 @@ sub Auth {
 # EO OneTimeAuthenticationLink
 
         # next on no success
-        next COUNT if !$User;
+        if ( !$User ) {
+
+            # get error message of auth backend if present
+            if ( $Self->{"AuthBackend$Count"}->{AuthError} ) {
+                $Self->{LastErrorMessage} = $Self->{"AuthBackend$Count"}->{AuthError};
+            }
+
+            next COUNT;
+        }
 
         # check 2factor auth backends
         my $TwoFactorAuth;

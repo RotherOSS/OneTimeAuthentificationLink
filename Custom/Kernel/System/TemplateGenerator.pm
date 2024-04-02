@@ -2,9 +2,9 @@
 # OTOBO is a web-based ticketing system for service organisations.
 # --
 # Copyright (C) 2001-2020 OTRS AG, https://otrs.com/
-# Copyright (C) 2019-2022 Rother OSS GmbH, https://otobo.de/
+# Copyright (C) 2019-2024 Rother OSS GmbH, https://otobo.de/
 # --
-# $origin: otobo - e894aef610208fdc401a4df814ca59658292fbba - Kernel/System/TemplateGenerator.pm
+# $origin: otobo - c679d913c2e5079e04ba98c88bf06924c5aa5341 - Kernel/System/TemplateGenerator.pm
 # --
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
@@ -17,13 +17,19 @@
 # --
 
 package Kernel::System::TemplateGenerator;
+
 ## nofilter(TidyAll::Plugin::OTOBO::Perl::LayoutObject)
 
 use strict;
 use warnings;
 
-use Kernel::Language;
+# core modules
 
+# CPAN modules
+use URI::Escape qw(uri_escape_utf8 uri_unescape);    ## no perlimports, methods are used in a substution
+
+# OTOBO modules
+use Kernel::Language              ();
 use Kernel::System::VariableCheck qw(:all);
 
 our @ObjectDependencies = (
@@ -50,11 +56,11 @@ our @ObjectDependencies = (
 
 =head1 NAME
 
-Kernel::System::TemplateGenerator - signature lib
+Kernel::System::TemplateGenerator - template generator lib
 
 =head1 DESCRIPTION
 
-All signature functions.
+All template generator functions.
 
 =head1 PUBLIC INTERFACE
 
@@ -353,14 +359,9 @@ sub Sender {
         }
     }
 
-    # prepare realname quote
-    if ( $Address{RealName} =~ /([.]|,|@|\(|\)|:)/ && $Address{RealName} !~ /^("|')/ ) {
-        $Address{RealName} =~ s/"//g;    # remove any quotes that are already present
-        $Address{RealName} = '"' . $Address{RealName} . '"';
-    }
-    my $Sender = "$Address{RealName} <$Address{Email}>";
-
-    return $Sender;
+    # Format sender realname and address conformant to RFC 5322. This is relevant when the real name contain commas
+    # or other special symbols.
+    return Mail::Address->new( $Address{RealName}, $Address{Email} )->format();
 }
 
 =head2 Template()
@@ -1204,7 +1205,7 @@ sub _Replace {
             my $SubjectOrBodyContent = $2;
             my $SubjectOrBodySuffix  = $3;
 
-            my $SubjectOrBodyContentUnescaped = URI::Escape::uri_unescape $SubjectOrBodyContent;
+            my $SubjectOrBodyContentUnescaped = uri_unescape $SubjectOrBodyContent;
 
             my $SubjectOrBodyContentReplaced = $Self->_Replace(
                 %Param,
@@ -1212,7 +1213,7 @@ sub _Replace {
                 RichText => 0,
             );
 
-            my $SubjectOrBodyContentEscaped = URI::Escape::uri_escape_utf8 $SubjectOrBodyContentReplaced;
+            my $SubjectOrBodyContentEscaped = uri_escape_utf8 $SubjectOrBodyContentReplaced;
 
             $SubjectOrBodyPrefix . $SubjectOrBodyContentEscaped . $SubjectOrBodySuffix;
         }egx;

@@ -2,9 +2,9 @@
 # OTOBO is a web-based ticketing system for service organisations.
 # --
 # Copyright (C) 2001-2020 OTRS AG, https://otrs.com/
-# Copyright (C) 2019-2022 Rother OSS GmbH, https://otobo.de/
+# Copyright (C) 2019-2024 Rother OSS GmbH, https://otobo.de/
 # --
-# $origin: otobo - 101d09455d8b257aaa0fa99a56dc5188e90580f5 - Kernel/System/Web/InterfaceCustomer.pm
+# $origin: otobo - 9274efd624fc535c4a2eea45a6e833b4eddcc6ce - Kernel/System/Web/InterfaceCustomer.pm
 # --
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
@@ -25,14 +25,14 @@ use namespace::autoclean;
 use utf8;
 
 # core modules
-use Time::HiRes qw();
+use Time::HiRes ();
 
 # CPAN modules
 
 # OTOBO modules
 use Kernel::System::VariableCheck qw(IsArrayRefWithData IsHashRefWithData);
-use Kernel::Language qw(Translatable);
-use Kernel::System::DateTime;
+use Kernel::Language              qw(Translatable);
+use Kernel::System::DateTime      ();
 
 our @ObjectDependencies = (
     'Kernel::Config',
@@ -137,25 +137,19 @@ Set headers in Kernels::System::Web::Request singleton as side effect.
 
 =cut
 
-sub Content {    ## no critic qw(Subroutines::RequireFinalReturn)
+sub Content {
     my $Self = shift;
 
     my $ConfigObject = $Kernel::OM->Get('Kernel::Config');
     my $ParamObject  = $Kernel::OM->Get('Kernel::System::Web::Request');
 
     # Check if https forcing is active, and redirect if needed.
-    if ( $ConfigObject->Get('HTTPSForceRedirect') ) {
+    if ( $ConfigObject->Get('HTTPSForceRedirect') && !$ParamObject->HttpsIsOn ) {
+        my $Host         = $ParamObject->Header('Host') || $ConfigObject->Get('FQDN');
+        my $RequestURI   = $ParamObject->RequestURI();
+        my $LayoutObject = $Kernel::OM->Get('Kernel::Output::HTML::Layout');
 
-        # Allow HTTPS to be 'on' in a case insensitive way.
-        # In OTOBO 10.0.1 it had to be lowercase 'on'.
-        my $HTTPS = $ParamObject->HTTPS('HTTPS') // '';
-        if ( lc $HTTPS ne 'on' ) {
-            my $Host         = $ParamObject->HTTP('HOST') || $ConfigObject->Get('FQDN');
-            my $RequestURI   = $ParamObject->RequestURI();
-            my $LayoutObject = $Kernel::OM->Get('Kernel::Output::HTML::Layout');
-
-            $LayoutObject->Redirect( ExtURL => "https://$Host$RequestURI" );    # throw a Kernel::System::Web::Exception exception
-        }
+        $LayoutObject->Redirect( ExtURL => "https://$Host$RequestURI" );    # throw a Kernel::System::Web::Exception exception
     }
 
     # get common framework params
@@ -202,9 +196,6 @@ sub Content {    ## no critic qw(Subroutines::RequireFinalReturn)
             UserLanguage => $Param{Lang}
         },
     );
-
-    # Restrict Cookie to HTTPS if it is used.
-    my $CookieSecureAttribute = $ConfigObject->Get('HttpType') eq 'https' ? 1 : undef;
 
     my $DBCanConnect = $Kernel::OM->Get('Kernel::System::DB')->Connect();
 
@@ -341,12 +332,10 @@ sub Content {    ## no critic qw(Subroutines::RequireFinalReturn)
             # tentatively set an useless cookie, for checking cookie support
             my $LayoutObject = $Kernel::OM->Get('Kernel::Output::HTML::Layout');
             $LayoutObject->SetCookie(
-                Key      => 'OTOBOBrowserHasCookie',
-                Value    => 1,
-                Expires  => $Expires,
-                Path     => $ConfigObject->Get('ScriptAlias'),
-                Secure   => $CookieSecureAttribute,
-                HTTPOnly => 1,
+                Key     => 'OTOBOBrowserHasCookie',
+                Name    => 'OTOBOBrowserHasCookie',
+                Value   => 1,
+                Expires => $Expires,
             );
 
             # redirect to alternate login
@@ -359,10 +348,7 @@ sub Content {    ## no critic qw(Subroutines::RequireFinalReturn)
                 );
             }
 
-# Rother OSS / OneTimeAuthenticationLink
-#            if ($PreventBruteForceConfig) {
-            if ( $PostUser && $PreventBruteForceConfig ) {
-# EO OneTimeAuthenticationLink
+            if ( $PreventBruteForceConfig && $PostUser ) {
 
                 # prevent brute force
                 my $Banned = $Self->_StoreFailedLogins(
@@ -528,29 +514,27 @@ sub Content {    ## no critic qw(Subroutines::RequireFinalReturn)
 
         $Kernel::OM->ObjectParamAdd(
             'Kernel::Output::HTML::Layout' => {
-                SetCookies => {
-                    SessionIDCookie => $ParamObject->SetCookie(
-                        Key      => $Param{SessionName},
-                        Value    => $NewSessionID,
-                        Expires  => $Expires,
-                        Path     => $ConfigObject->Get('ScriptAlias'),
-                        Secure   => $CookieSecureAttribute,
-                        HTTPOnly => 1,
-                    ),
-
-                    # delete the OTOBOBrowserHasCookie cookie
-                    OTOBOBrowserHasCookie => $ParamObject->SetCookie(
-                        Key      => 'OTOBOBrowserHasCookie',
-                        Value    => '',
-                        Expires  => '-1y',
-                        Path     => $ConfigObject->Get('ScriptAlias'),
-                        Secure   => $CookieSecureAttribute,
-                        HTTPOnly => 1,
-                    ),
-                },
+                SetCookies  => {},
                 SessionID   => $NewSessionID,
                 SessionName => $Param{SessionName},
             },
+        );
+
+        Kernel::Output::HTML::Layout->SetCookie(
+            RegisterInOM => 1,
+            Key          => 'SessionIDCookie',
+            Name         => $Param{SessionName},
+            Value        => $NewSessionID,
+            Expires      => $Expires,
+        );
+
+        # delete the OTOBOBrowserHasCookie cookie
+        Kernel::Output::HTML::Layout->SetCookie(
+            RegisterInOM => 1,
+            Key          => 'OTOBOBrowserHasCookie',
+            Name         => 'OTOBOBrowserHasCookie',
+            Value        => '',
+            Expires      => '-1y',
         );
 
         # redirect with new session id and old params
@@ -605,21 +589,19 @@ sub Content {    ## no critic qw(Subroutines::RequireFinalReturn)
         # create a new LayoutObject with '%Param' and '%UserData'
         $Kernel::OM->ObjectParamAdd(
             'Kernel::Output::HTML::Layout' => {
-                SetCookies => {
-
-                    # delete the OTOBO session cookie
-                    SessionIDCookie => $ParamObject->SetCookie(
-                        Key      => $Param{SessionName},
-                        Value    => '',
-                        Expires  => '-1y',
-                        Path     => $ConfigObject->Get('ScriptAlias'),
-                        Secure   => $CookieSecureAttribute,
-                        HTTPOnly => 1,
-                    ),
-                },
+                SetCookies => {},
                 %Param,
                 %UserData,
             },
+        );
+
+        # delete the OTOBO session cookie
+        Kernel::Output::HTML::Layout->SetCookie(
+            RegisterInOM => 1,
+            Key          => 'SessionIDCookie',
+            Name         => $Param{SessionName},
+            Value        => '',
+            Expires      => '-1y',
         );
 
         $Kernel::OM->ObjectsDiscard( Objects => ['Kernel::Output::HTML::Layout'] );
@@ -1053,6 +1035,27 @@ sub Content {    ## no critic qw(Subroutines::RequireFinalReturn)
             );
 
             if ( $PreAuth && $PreAuth->{RedirectURL} ) {
+
+                if ( $ConfigObject->Get('SessionUseCookie') ) {
+
+                    # always set a cookie, so that
+                    # we know already if the browser supports cookies.
+                    # ( the session cookie isn't available at that time ).
+
+                    my $Expires = '+' . $ConfigObject->Get('SessionMaxTime') . 's';
+                    if ( !$ConfigObject->Get('SessionUseCookieAfterBrowserClose') ) {
+                        $Expires = '';
+                    }
+
+                    # set a cookie tentatively for checking cookie support
+                    $LayoutObject->SetCookie(
+                        Key     => 'OTOBOBrowserHasCookie',
+                        Name    => 'OTOBOBrowserHasCookie',
+                        Value   => 1,
+                        Expires => $Expires,
+                    );
+                }
+
                 $LayoutObject->Redirect(
                     ExtURL => $PreAuth->{RedirectURL},
                 );    # throws a Kernel::System::Web::Exception
@@ -1115,51 +1118,47 @@ sub Content {    ## no critic qw(Subroutines::RequireFinalReturn)
             # create new LayoutObject with new '%Param'
             $Kernel::OM->ObjectParamAdd(
                 'Kernel::Output::HTML::Layout' => {
-                    SetCookies => {
-
-                        # delete the OTOBO session cookie
-                        SessionIDCookie => $ParamObject->SetCookie(
-                            Key      => $Param{SessionName},
-                            Value    => '',
-                            Expires  => '-1y',
-                            Path     => $ConfigObject->Get('ScriptAlias'),
-                            Secure   => $CookieSecureAttribute,
-                            HTTPOnly => 1,
-                        ),
-                    },
+                    SetCookies => {},
                     %Param,
                 },
             );
 
+            # delete the OTOBO session cookie
+            Kernel::Output::HTML::Layout->SetCookie(
+                RegisterInOM => 1,
+                Key          => 'SessionIDCookie',
+                Name         => $Param{SessionName},
+                Value        => '',
+                Expires      => '-1y',
+            );
+
             # if the wrong scheme is used, delete also the "other" cookie - issue #251
-            my ($RequestScheme) = split '/', $ParamObject->ServerProtocol, 2;
+            my ($RequestScheme) = split /\//, $ParamObject->ServerProtocol, 2;
             if ( $RequestScheme ne $ConfigObject->Get('HttpType') ) {
                 $Kernel::OM->ObjectParamAdd(
                     'Kernel::Output::HTML::Layout' => {
-                        SetCookies => {
-
-                            # delete the OTOBO session cookie
-                            SessionIDCookiehttp => $ParamObject->SetCookie(
-                                Key      => $Param{SessionName},
-                                Value    => '',
-                                Expires  => '-1y',
-                                Path     => $ConfigObject->Get('ScriptAlias'),
-                                Secure   => '',
-                                HTTPOnly => 1,
-                            ),
-
-                            # delete the OTOBO session cookie
-                            SessionIDCookiehttps => $ParamObject->SetCookie(
-                                Key      => $Param{SessionName},
-                                Value    => '',
-                                Expires  => '-1y',
-                                Path     => $ConfigObject->Get('ScriptAlias'),
-                                Secure   => 1,
-                                HTTPOnly => 1,
-                            ),
-                        },
+                        SetCookies => {},
                         %Param,
                     },
+                );
+
+                # delete the OTOBO session cookie
+                # TODO: the Name is used twice
+                Kernel::Output::HTML::Layout->SetCookie(
+                    RegisterInOM => 1,
+                    Key          => 'SessionIDCookiehttp',
+                    Name         => $Param{SessionName},
+                    Value        => '',
+                    Expires      => '-1y',
+                    Secure       => '',
+                );
+                Kernel::Output::HTML::Layout->SetCookie(
+                    RegisterInOM => 1,
+                    Key          => 'SessionIDCookiehttps',
+                    Name         => $Param{SessionName},
+                    Value        => '',
+                    Expires      => '-1y',
+                    Secure       => 1,
                 );
             }
 
