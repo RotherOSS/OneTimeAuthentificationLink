@@ -37,6 +37,9 @@ our @ObjectDependencies = (
     'Kernel::System::AutoResponse',
     'Kernel::System::CommunicationChannel',
     'Kernel::System::CustomerUser',
+# Rother OSS / OneTimeAuthenticationLink
+    'Kernel::System::CustomerAuth::OneTimeAuthLink',
+# EO OneTimeAuthenticationLink
     'Kernel::System::DynamicField',
     'Kernel::System::DynamicField::Backend',
     'Kernel::System::Encode',

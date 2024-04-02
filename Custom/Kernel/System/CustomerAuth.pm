@@ -114,6 +114,9 @@ sub GetOption {
 }
 
 # Rother OSS / OneTimeAuthenticationLink
+
+=for stopwords authentification
+
 =head2 ExtendedParamNames()
 
 Get names of extended params which provide authentification information

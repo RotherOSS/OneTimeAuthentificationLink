@@ -2,7 +2,7 @@
 # OTOBO is a web-based ticketing system for service organisations.
 # --
 # Copyright (C) 2001-2020 OTRS AG, https://otrs.com/
-# Copyright (C) 2019-2021 Rother OSS GmbH, https://otobo.de/
+# Copyright (C) 2019-2024 Rother OSS GmbH, https://otobo.de/
 # --
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
@@ -78,12 +78,12 @@ sub Run {
     my $CustomerUserObject = $Kernel::OM->Get('Kernel::System::CustomerUser');
 
     my %List = $CustomerUserObject->CustomerSearch(
-        PostMasterSearch => lc( $IncomingMailAddress ),
+        PostMasterSearch => lc($IncomingMailAddress),
         Valid            => 0,
     );
 
     # user already exists
-    if ( %List ) {
+    if (%List) {
 
         # return if no X-OTOBO-CustomerUser spoofing is possible/dangerous
         return 1 if !$Param{JobConfig}{CustomerHeaderSpoofProtection} && !$Param{JobConfig}{SetCheckBoxName};
@@ -94,7 +94,7 @@ sub Run {
             my %CustomerUser = $CustomerUserObject->CustomerUserDataGet(
                 User => $UserLogin,
             );
-            
+
             if ( $CustomerUser{ValidID} == 1 ) {
                 %CustomerData = %CustomerUser;
                 last LOGIN;
@@ -139,8 +139,8 @@ sub Run {
 
     # user does not yet exist - create it!
     else {
-        my $UserLogin = lc( $IncomingMailAddress );
-        
+        my $UserLogin = lc($IncomingMailAddress);
+
         my $Success = $CustomerUserObject->CustomerUserAdd(
             Source         => $Param{JobConfig}{CustomerUserBackend} || 'CustomerUser',
             UserFirstname  => ' ',
@@ -152,7 +152,8 @@ sub Run {
             UserID         => 1,
         );
 
-        if ( $Success ) {
+        if ($Success) {
+
             # notice that UserLogin is from customer source backend
             $Self->{CommunicationLogObject}->ObjectLog(
                 ObjectLogType => 'Message',
