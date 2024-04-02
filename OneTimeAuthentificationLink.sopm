@@ -1,19 +1,20 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <otobo_package version="1.0">
     <Name>OneTimeAuthentificationLink</Name>
+    <Version>11.0.0</Version>
+    <Framework>11.0.x</Framework>
     <Vendor>Rother OSS GmbH</Vendor>
-    <Framework>10.1.x</Framework>
-    <URL>https://rother-oss.com/</URL>
+    <URL>https://otobo.de/</URL>
     <License>GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007</License>
     <Description Lang="en">Automatically creates customer users and gives them access via one time authentification tokens.</Description>
     <Filelist>
-        <File Permission='644' Location='Custom/Kernel/System/CustomerAuth.pm' />
-        <File Permission='644' Location='Custom/Kernel/System/TemplateGenerator.pm' />
-        <File Permission='644' Location='Custom/Kernel/System/Web/InterfaceCustomer.pm' />
-        <File Permission='644' Location='Kernel/Config/Files/XML/OneTimeAuthentificationLink.xml' />
-        <File Permission='644' Location='Kernel/System/Console/Command/Maint/CustomerAuth/DeleteExpiredOTATokens.pm' />
-        <File Permission='644' Location='Kernel/System/CustomerAuth/OneTimeAuthLink.pm' />
-        <File Permission='644' Location='Kernel/System/PostMaster/Filter/CreateNewCustomerUser.pm' />
+        <File Permission="660" Location="Custom/Kernel/System/CustomerAuth.pm" />
+        <File Permission="660" Location="Custom/Kernel/System/TemplateGenerator.pm" />
+        <File Permission="660" Location="Custom/Kernel/System/Web/InterfaceCustomer.pm" />
+        <File Permission="660" Location="Kernel/Config/Files/XML/OneTimeAuthentificationLink.xml" />
+        <File Permission="660" Location="Kernel/System/Console/Command/Maint/CustomerAuth/DeleteExpiredOTATokens.pm" />
+        <File Permission="660" Location="Kernel/System/CustomerAuth/OneTimeAuthLink.pm" />
+        <File Permission="660" Location="Kernel/System/PostMaster/Filter/CreateNewCustomerUser.pm" />
     </Filelist>
     <DatabaseInstall Type="pre">
         <TableCreate Name="ota_tokens">
