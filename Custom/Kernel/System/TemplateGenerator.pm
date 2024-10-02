@@ -2,9 +2,9 @@
 # OTOBO is a web-based ticketing system for service organisations.
 # --
 # Copyright (C) 2001-2020 OTRS AG, https://otrs.com/
-# Copyright (C) 2019-2024 Rother OSS GmbH, https://otobo.de/
+# Copyright (C) 2019-2024 Rother OSS GmbH, https://otobo.io/
 # --
-# $origin: otobo - c679d913c2e5079e04ba98c88bf06924c5aa5341 - Kernel/System/TemplateGenerator.pm
+# $origin: otobo - 4dade81e7e04433cb2aed36af0c8727d822a1c61 - Kernel/System/TemplateGenerator.pm
 # --
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
@@ -865,8 +865,7 @@ sub AutoResponse {
         );
 
         $AutoResponse{Text} = $Kernel::OM->Get('Kernel::System::HTMLUtils')->DocumentComplete(
-            Charset => 'utf-8',
-            String  => $AutoResponse{Text},
+            String => $AutoResponse{Text},
         );
     }
 
@@ -1740,10 +1739,15 @@ sub _Replace {
                 OnlyLast   => 1,
             );
 
-            my %AgentArticle = $ArticleObject->BackendForArticle( %{ $AgentArticles[0] } )->ArticleGet(
-                %{ $AgentArticles[0] },
-                DynamicFields => 0,
-            );
+            if (@AgentArticles) {
+                my %AgentArticle = $ArticleObject->BackendForArticle( %{ $AgentArticles[0] } )->ArticleGet(
+                    %{ $AgentArticles[0] },
+                    DynamicFields => 0,
+                );
+
+                $Param{DataAgent}->{Subject} = $AgentArticle{Subject};
+                $Param{DataAgent}->{Body}    = $AgentArticle{Body};
+            }
 
             # Get last article from customer.
             my @CustomerArticles = $ArticleObject->ArticleList(
@@ -1752,15 +1756,15 @@ sub _Replace {
                 OnlyLast   => 1,
             );
 
-            my %CustomerArticle = $ArticleObject->BackendForArticle( %{ $CustomerArticles[0] } )->ArticleGet(
-                %{ $CustomerArticles[0] },
-                DynamicFields => 0,
-            );
+            if (@CustomerArticles) {
+                my %CustomerArticle = $ArticleObject->BackendForArticle( %{ $CustomerArticles[0] } )->ArticleGet(
+                    %{ $CustomerArticles[0] },
+                    DynamicFields => 0,
+                );
 
-            $Param{DataAgent}->{Subject} = $AgentArticle{Subject};
-            $Param{DataAgent}->{Body}    = $AgentArticle{Body};
-            $Param{Data}->{Subject}      = $CustomerArticle{Subject};
-            $Param{Data}->{Body}         = $CustomerArticle{Body};
+                $Param{Data}->{Subject} = $CustomerArticle{Subject};
+                $Param{Data}->{Body}    = $CustomerArticle{Body};
+            }
         }
         elsif ( $Param{Template} eq 'Answer' || $Param{Template} eq 'Forward' ) {
 
